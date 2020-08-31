@@ -1,7 +1,7 @@
 <%- include("header") -%>
 
   <div class="box" id="heading">
-    <h1> <%= listTitle %> </h1>
+    <h1> <%= _.capitalize(listTitle) %> </h1>
   </div>
 
   <div class="box">
@@ -21,7 +21,7 @@
 
       <form class="item" action="/" method="post">
         <input autofocus="true" type="text" name="newItem" placeholder="New Item" autocomplete="off">
-        <button type="submit" name="list" value="<%= listTitle %>">+</button>
+        <button type="submit" name="list" value="<%= _.lowerCase(listTitle) %>">+</button>
       </form>
   </div>
 
