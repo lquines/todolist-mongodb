@@ -7,7 +7,6 @@ const mongoose = require("mongoose");
 // const date = require(__dirname + "/date.js");
 
 const app = express();
-var gListTitle;
 
 // this is required for lodash
 app.locals._ = _;
@@ -15,7 +14,6 @@ app.locals._ = _;
 app.set('view engine', 'ejs');
 
 app.use(bodyParser.urlencoded({
-
   extended: true
 }));
 
@@ -27,15 +25,15 @@ mongoose.connect("mongodb://localhost:27017/todolistDB", {
   useUnifiedTopology: true
 });
 
-// create new list schema
+// create new item schema
 const itemSchema = new mongoose.Schema({
   name: String
 });
 
-// create a model based on schema
+// create the Item model based on the item schema
 const Item = mongoose.model("Item", itemSchema);
 
-// create new documents based on model
+// create new documents based on Item model
 const item1 = new Item({
   name: "Welcome to TodoList."
 });
@@ -51,33 +49,26 @@ const item3 = new Item({
 // group the items into an array
 const defaultItems = [item1, item2, item3];
 
-
-// update one record
-// Item.updateOne({_id: "5f49075b64f624163cae8088"}, {name: "<-- Click this to delete an item."}, function(err){
-//   if(err){
-//     console.log(err);
-//   } else {
-//     console.log("Successfully updated record.");
-//   }
-// });
-
-
+// create new list schema
 const listSchema = {
   name: String,
   items: [itemSchema]
 };
 
+// create the List model based off the listSchema
 const List = mongoose.model("List", listSchema);
 
 
 app.get("/:customListName", function(req, res) {
 
-  const customListName = req.params.customListName;
+  const customListName = _.capitalize(req.params.customListName);
 
-  List.findOne({name: customListName}, async function(err, found) {
+  List.findOne({
+    name: customListName
+  }, async function(err, found) {
 
-    if(!err) {
-      if(!found) {
+    if (!err) {
+      if (!found) {
 
         console.log("Does not exist.");
 
@@ -87,7 +78,7 @@ app.get("/:customListName", function(req, res) {
         });
 
         await list.save();
-        await res.redirect("/" + customListName);
+        res.redirect("/" + customListName);
 
       } else {
 
@@ -105,15 +96,15 @@ app.get("/:customListName", function(req, res) {
 
 app.get("/", function(req, res) {
 
-  gListTitle = "Today";
+  defaultTitle = "Today";
 
   // const day = date.getDate();
 
   // get item records from database, use callback by
   // using the result inside the asynchronous function
-  Item.find({}, function(err, foundItems) {
+  Item.find({}, async function(err, found) {
 
-    if (foundItems.length === 0) {
+    if (found.length === 0) {
 
       // insert default records to database
       // if database is empty
@@ -130,7 +121,7 @@ app.get("/", function(req, res) {
         }
       });
 
-      res.redirect("/");
+      await res.redirect("/");
 
     } else {
 
@@ -142,9 +133,8 @@ app.get("/", function(req, res) {
 
         res.render("list", {
 
-          listTitle: gListTitle,
-          newListItems: foundItems
-
+          listTitle: defaultTitle,
+          newListItems: found
         });
       }
     }
@@ -152,10 +142,10 @@ app.get("/", function(req, res) {
 });
 
 
-app.post("/", function(req, res) {
+app.post("/", async function(req, res) {
 
-  const itemName = req.body.newItem;
-  const listName = req.body.list;
+  const itemName = _.capitalize(req.body.newItem);
+  const listName = _.capitalize(req.body.list);
 
   // save entered item into database
   const item = new Item({
@@ -163,49 +153,60 @@ app.post("/", function(req, res) {
   });
 
   if (listName === "Today") {
-    newItem.save();
+    await item.save();
     res.redirect("/");
   } else {
 
-    List.findOne({name: listName}, async function(err, found) {
-      await found.items.push(item);
+    List.findOne({
+      name: listName
+    }, async function(err, found) {
+      found.items.push(item);
       await found.save();
-      await res.redirect("/" + listName);
+
     });
+
+    res.redirect("/" + listName);
+
   }
 });
 
 
-// app.post("/work", function(req, res) {
-//
-//   const item = req.body.newItem;
-//
-//   const workItem = new Work({
-//     name: item
-//   });
-//
-//   workItem.save();
-//   res.redirect("/work");
-// });
-
-
 app.post("/delete", function(req, res) {
-
 
   console.log(req.body.checkbox);
   console.log(req.body.listName);
+  const itemID = req.body.checkbox;
+  const listName = req.body.listName;
 
-  const listTitle = req.body.listName;
+  /**
+    Finds the List collection by name, then removes the item
+    from the list by id, then saves the changes.
+    async/await is used to wait for the changes to save
+    before the redirect back to see the changes.
+  */
 
-  List.findOne({name: req.body.listName}, async function(err, res) {
-    console.log(err);
-    console.log(res);
-    res.items.pull(req.body.checkbox);
-    await res.save();
-  });
+  if (listName === "Today") {
 
-  res.redirect("/" + listTitle);
+    Item.findByIdAndRemove(itemID, function(err) {
 
+      if (!err) {
+        console.log("Successfully deleted item.");
+        res.redirect("/");
+      }
+    });
+
+  } else {
+
+    List.findOne({
+      name: listName
+    }, async function(err, res) {
+      res.items.pull(itemID);
+      await res.save();
+    });
+
+    res.redirect("/" + listName);
+
+  }
 });
 
 
